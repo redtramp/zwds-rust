@@ -1,0 +1,315 @@
+/* 设计系统令牌 —— 自 Sample/app/globals.css 移植（去 Tailwind）。
+   --t-* 为原版商业遗留别名，在此统一定义映射（修复开源版未定义问题，见设计文档 §5.2）。 */
+
+/* ─── 令牌（默认 = 亮色，与 Sample 一致）────────────────── */
+:root {
+  color-scheme: light;
+
+  --font: -apple-system, "PingFang SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Menlo", "Noto Sans Mono", "Consolas", monospace;
+  --mono: var(--font-mono);
+
+  /* 背景层级 */
+  --bg-0: #fafaf9;
+  --bg-1: #f4f3ef;
+  --bg-2: #eceaE4;
+  --bg-inv: #0d0d0b;
+
+  /* 文字层级 */
+  --tx-0: #0d0d0b;
+  --tx-1: #1a1a18;
+  --tx-2: #4a4a45;
+  --tx-3: #8a8a82;
+  --tx-inv: #f0ede8;
+  --tx-inv2: rgba(240, 237, 232, 0.65);
+
+  /* 唯一强调色：墨金 */
+  --ac: #b8922a;
+  --ac-dim: #7a5f1a;
+  --ac-bg: rgba(184, 146, 42, 0.07);
+  --ac-bdr: rgba(184, 146, 42, 0.22);
+
+  /* 四化语义色 */
+  --lu: #2d7a4a;
+  --quan: #1a56a8;
+  --ke: #8a7018;
+  --ji: #a83228;
+
+  /* 边框 */
+  --bdr: rgba(0, 0, 0, 0.07);
+  --bdr-med: rgba(0, 0, 0, 0.11);
+  --bdr-heavy: rgba(0, 0, 0, 0.18);
+
+  /* 阴影 */
+  --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --sh-sm: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --sh-md: 0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --sh-lg: 0 12px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  /* 卡片/页面 */
+  --bg-card: #ffffff;
+  --bg-page: #fbf6e8;
+
+  /* 圆角 */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* ── --t-* 别名（映射到主令牌体系）────────────────── */
+  --t-bg: var(--bg-1);
+  --t-card: var(--bg-card);
+  --t-surface: var(--bg-1);
+  --t-border: var(--bdr-med);
+  --t-gold: var(--ac);
+  --t-faint: var(--tx-3);
+  --t-text: var(--tx-0);
+  --t-text2: var(--tx-2);
+}
+
+/* ─── 暗色覆盖 ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-0: #020810;
+  --bg-1: #0a1020;
+  --bg-2: #141e30;
+  --bg-inv: #f0ede8;
+
+  --tx-0: #e8eef6;
+  --tx-1: #dce4f0;
+  --tx-2: #9db0d0;
+  --tx-3: #6a7a96;
+  --tx-inv: #0d0d0b;
+  --tx-inv2: rgba(13, 13, 11, 0.65);
+
+  --ac: #d4a843;
+  --ac-dim: #e8c060;
+  --ac-bg: rgba(212, 168, 67, 0.1);
+  --ac-bdr: rgba(212, 168, 67, 0.25);
+
+  --lu: #4ade80;
+  --quan: #60a5fa;
+  --ke: #facc15;
+  --ji: #f87171;
+
+  --bdr: rgba(255, 255, 255, 0.07);
+  --bdr-med: rgba(255, 255, 255, 0.12);
+  --bdr-heavy: rgba(255, 255, 255, 0.2);
+
+  --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sh-sm: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --sh-md: 0 4px 20px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --sh-lg: 0 12px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-page: #020810;
+}
+
+/* ─── 全局基础 ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-0);
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--tx-1);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  transition: background 0.42s ease, color 0.42s ease;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* ─── 滚动条 ───────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-1);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bdr-heavy);
+  border-radius: 3px;
+}
+
+/* ─── 选中文字 ─────────────────────────────────────────── */
+::selection {
+  background: rgba(184, 146, 42, 0.15);
+  color: var(--ac-dim);
+}
+
+/* ─── 工具类（组件所用子集）───────────────────────────── */
+.container-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+@media (max-width: 768px) {
+  .container-page {
+    padding: 0 16px;
+  }
+}
+
+.card,
+.card-glass {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-sm);
+}
+.card-flat {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-md);
+}
+.card-tinted {
+  background: var(--bg-1);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-md);
+}
+.card-inner {
+  background: var(--bg-1);
+  border: 1px solid var(--bdr);
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--bdr);
+}
+
+.label-section {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  font-weight: 500;
+}
+
+.input-base {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--bdr-med);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--tx-1);
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.input-base:focus {
+  border-color: var(--tx-0);
+}
+.input-base::placeholder {
+  color: var(--tx-3);
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+/* 四化 Badge（全局类；PalaceCell 内另有作用域样式） */
+.badge-lu {
+  color: var(--lu);
+  background: rgba(45, 122, 74, 0.08);
+  border: 1px solid rgba(45, 122, 74, 0.2);
+}
+.badge-quan {
+  color: var(--quan);
+  background: rgba(26, 86, 168, 0.08);
+  border: 1px solid rgba(26, 86, 168, 0.2);
+}
+.badge-ke {
+  color: var(--ke);
+  background: rgba(138, 112, 24, 0.08);
+  border: 1px solid rgba(138, 112, 24, 0.2);
+}
+.badge-ji {
+  color: var(--ji);
+  background: rgba(168, 50, 40, 0.08);
+  border: 1px solid rgba(168, 50, 40, 0.2);
+}
+
+/* 进场动画 */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s ease forwards;
+}
+.animate-fade-in {
+  animation: fade-in 0.4s ease forwards;
+}
+
+/* 渐变文字（HomePage 内另有作用域实现，此处为全局兜底） */
+.grad-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  display: inline-block;
+}
+
+/* ─── 原生下拉：暗色主题下选项列表用实色底（Sample #14 修复）── */
+[data-theme="dark"] select {
+  color-scheme: dark;
+}
+[data-theme="dark"] select option {
+  background-color: var(--bg-2);
+  color: var(--tx-1);
+}
+
+/* ─── 打印 ─────────────────────────────────────────────── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: #1a1a18;
+  }
+  @page {
+    margin: 1.2cm;
+    size: A4 landscape;
+  }
+}

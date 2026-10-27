@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>紫微斗数</title>
+    <script>
+      // 防闪烁：挂载前应用持久化主题与外观（字体/字号）
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("ziwei-theme") === "light" ? "light" : "dark";
+        var _ap = JSON.parse(localStorage.getItem("ziwei-appearance") || "{}");
+        if (_ap && typeof _ap.fontFamily === "string" && _ap.fontFamily) {
+          document.documentElement.style.setProperty("--font", _ap.fontFamily);
+          document.documentElement.style.setProperty("--font-mono", _ap.fontFamily);
+        }
+        var _zoom = Number(_ap && _ap.zoom) || 1;
+        if (_zoom !== 1) {
+          document.documentElement.style.zoom = String(_zoom);
+          // 根 zoom 下 100vh 会物理放大溢出窗口：探针实测缩放因子，壳高度 = 窗口物理高度 / s
+          var _p = document.createElement("div");
+          _p.style.cssText = "position:absolute;left:0;top:0;width:0;height:100px;visibility:hidden;pointer-events:none;";
+          document.documentElement.appendChild(_p);
+          var _s = (_p.getBoundingClientRect().height || 100) / 100;
+          document.documentElement.removeChild(_p);
+          document.documentElement.style.setProperty("--app-h", (window.innerHeight / _s) + "px");
+        }
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

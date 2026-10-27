@@ -1,0 +1,3 @@
+/target/
+# Tauri 构建时生成
+/gen/schemas/

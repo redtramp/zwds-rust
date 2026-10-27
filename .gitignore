@@ -1,0 +1,11 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+
+# 本地 agent 配置（会话/记忆等，不入库）
+.atomcode/
+
+# OS
+.DS_Store

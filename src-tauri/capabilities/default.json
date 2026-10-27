@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "默认能力：核心 API + 本地存储。刻意不授予任何网络权限——AI 流量一律经 Rust reqwest 发出（设计文档 C3/A2/A3）",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "store:default"
+  ]
+}

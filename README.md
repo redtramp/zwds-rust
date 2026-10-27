@@ -9,7 +9,7 @@ OpenAI 兼容提供商**（DeepSeek / OpenAI / Kimi / 通义 / 智谱 预置一�
 ```bash
 npm install
 npm run tauri dev      # 开发模式（窗口 + 热更新）
-npm test               # 排盘引擎回归（9 套，与 Sample CI 完全一致）
+npm test               # 排盘引擎回归（10 套，与上游 CI 完全一致）
 cargo test --manifest-path src-tauri/Cargo.toml   # Rust 核心单测（32 条）
 npm run tauri build    # 出包
 ```
@@ -48,4 +48,4 @@ rust/
 ## 上游同步
 
 本项目为上游开源项目的移植/重写，**不是 git fork**；上游更新需按 [UPSTREAM.md](UPSTREAM.md)
-记录的流程同步移植（基线 commit、目录对照表、`scripts/sync-upstream.sh` 工具，移植后以 9 套回归测试验证）。
+记录的流程同步移植（基线 commit、目录对照表、`scripts/sync-upstream.sh` 工具，移植后以 10 套回归测试验证）。

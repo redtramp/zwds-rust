@@ -4,14 +4,14 @@
 **重写/移植**（Tauri 2 + Svelte 5 + Rust），**不是 git fork**：两者没有共同 git 历史，
 上游更新无法通过 `git pull` / `git merge` 自动带入，必须按下述流程**同步移植**。
 
-<!-- baseline: e478393ad6c865ad6270e978a3164d2f2cb5315b -->
+<!-- baseline: ff9a1470ebe652e57b9d690f5d01db9a04f47aae -->
 
 ## 当前同步基线
 
 | 项 | 值 |
 | --- | --- |
 | 上游仓库 | https://github.com/Renhuai123/ziwei-doushu |
-| 基线 commit | `e478393ad6c865ad6270e978a3164d2f2cb5315b` (2026-10-24, docs(README): 开头两段标签前加「一、」「二、」 (#48)) |
+| 基线 commit | `ff9a1470ebe652e57b9d690f5d01db9a04f47aae` (2026-10-27, feat(引擎): 海外时区真太阳时 + 夏令时钟表读数换成标准时间 (#55)) |
 | 上游本地 clone | `../Sample/`（本仓库的兄弟目录，仅本地工作副本，不入库） |
 
 > 机器可读的基线以上方 HTML 注释中的 `baseline` 行为准；`scripts/sync-upstream.sh mark` 会自动改写它（连同上表基线行）。
@@ -24,7 +24,7 @@
 | `lib/classics/` | `src/lib/classics/` | 古籍数据，原样移植 |
 | `components/` | `src/lib/components/` | TSX → Svelte 5，逻辑 1:1 保留，样式令牌化 |
 | `app/` | `src/lib/pages/` | Next.js 路由 → hash 路由 |
-| `scripts/regression/` | `scripts/regression/` | 9 套回归测试，与上游 CI 完全一致（同步后的验证安全网） |
+| `scripts/regression/` | `scripts/regression/` | 10 套回归测试，与上游 CI 完全一致（同步后的验证安全网） |
 | `lib/nihai/`、`lib/seo/`、`lib/site.ts` | — | 未移植（Next.js 特有 / SEO 功能，桌面版不需要） |
 
 ## 同步流程
@@ -35,7 +35,7 @@
 scripts/sync-upstream.sh status   # ① 查看上游更新（基线 vs 最新，列出新 commit 与移植相关目录变更）
 scripts/sync-upstream.sh diff     # ② 查看移植相关目录的完整 diff
 # ③ 按上方对照表把变更移植到本仓库对应目录（人工）
-npm test                          # ④ 跑 9 套回归测试验证移植
+npm test                          # ④ 跑 10 套回归测试验证移植
 scripts/sync-upstream.sh mark     # ⑤ 基线更新到上游最新 commit（会同时改写本文件的基线行）
 git add -A && git commit          # ⑥ 提交移植结果与新的基线
 ```

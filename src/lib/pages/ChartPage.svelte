@@ -44,7 +44,7 @@
     <p class="sub">
       输入出生年月日时，开源排盘引擎即时生成命盘。
       <br />
-      排盘内核完全开放（lib/ziwei 原样移植，9 套回归钉住行为一致）。
+      排盘内核完全开放（lib/ziwei 原样移植，10 套回归钉住行为一致）。
     </p>
 
     {#if birthHistory.list.length > 0}

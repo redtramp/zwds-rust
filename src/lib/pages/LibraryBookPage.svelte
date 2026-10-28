@@ -1,13 +1,46 @@
 <script lang="ts">
   // 古籍章节目录页 —— 对应 Sample/app/library/[book]/page.tsx
-  import { getBookBySlug } from "@/lib/classics";
+  // 数据源：SQLite（classics.db），异步加载
+  import { getBookSummary, listChapters } from "@/lib/classics";
+  import type { BookSummary, ChapterSummary } from "@/lib/classics";
 
   let { book: bookSlug }: { book: string } = $props();
 
-  const book = $derived(getBookBySlug(bookSlug));
+  let book = $state<BookSummary | null>(null);
+  let chapters = $state<ChapterSummary[]>([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+
+  let gen = 0;
+  $effect(() => {
+    const slug = bookSlug;
+    const my = ++gen;
+    loading = true;
+    error = null;
+    (async () => {
+      try {
+        const [b, ch] = await Promise.all([getBookSummary(slug), listChapters(slug)]);
+        if (my !== gen) return; // 路由已切走，丢弃过期结果
+        book = b;
+        chapters = ch;
+      } catch (e) {
+        if (my !== gen) return;
+        error = e instanceof Error ? e.message : String(e);
+      } finally {
+        if (my === gen) loading = false;
+      }
+    })();
+  });
 </script>
 
-{#if book}
+{#if loading}
+  <main class="page center-miss"><p class="loading">加载中…</p></main>
+{:else if error}
+  <main class="page center-miss">
+    <p class="err">古籍库加载失败：{error}</p>
+    <a href="#/library" class="crumb">← 返回古籍库</a>
+  </main>
+{:else if book}
   <main class="page">
     <div class="head">
       <a class="crumb" href="#/library">← 古籍库</a>
@@ -18,13 +51,13 @@
     <div class="center">
       <h1>《{book.title}》</h1>
       <p class="intro">{book.intro}</p>
-      <div class="count">{book.chapters.length} 章节 · {book.chapters.reduce((s, c) => s + c.paragraphs.length, 0)} 段精华</div>
+      <div class="count">{book.chapterCount} 章节 · {book.paragraphCount} 段原文</div>
     </div>
 
     <div class="chapters">
-      {#each book.chapters as chapter, i}
-        <a class="chapter" href="#/library/{book.slug}/{i}">
-          <span class="idx">{String(i + 1).padStart(2, "0")}</span>
+      {#each chapters as chapter}
+        <a class="chapter" href="#/library/{book.slug}/{chapter.idx}">
+          <span class="idx">{String(chapter.idx + 1).padStart(2, "0")}</span>
           <span class="c-title">{chapter.title}</span>
           {#if chapter.subtitle}<span class="c-sub">{chapter.subtitle}</span>{/if}
           <span class="arrow">→</span>
@@ -126,5 +159,14 @@
   .center-miss {
     text-align: center;
     padding-top: 80px;
+  }
+  .loading {
+    color: var(--t-faint);
+    letter-spacing: 0.2em;
+  }
+  .err {
+    color: var(--ji);
+    font-size: 14px;
+    margin-bottom: 16px;
   }
 </style>

@@ -1,17 +1,55 @@
 <script lang="ts">
   // 古籍章节阅读页 —— 移植自 Sample/app/library/[book]/[chapter]/page.tsx
   // 支持段落锚点跳转（#/library/:book/:chapter#:paraId）
-  import { getChapter } from "@/lib/classics";
+  // 数据源：SQLite（classics.db），异步加载
+  import { getChapterContent, listChapters } from "@/lib/classics";
+  import type { BookSummary, ChapterSummary, Paragraph } from "@/lib/classics";
 
   let { book: bookSlug, chapter: chapterIdx }: { book: string; chapter: string } = $props();
 
-  const result = $derived(getChapter(bookSlug, parseInt(chapterIdx)));
-  const book = $derived(result?.book ?? null);
-  const chapter = $derived(result?.chapter ?? null);
-  const idx = $derived(result?.chapterIdx ?? 0);
+  let book = $state<BookSummary | null>(null);
+  let chapter = $state<ChapterSummary | null>(null);
+  let paragraphs = $state<Paragraph[]>([]);
+  let chapters = $state<ChapterSummary[]>([]);
+  let idx = $state(0);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+
+  let gen = 0;
+  $effect(() => {
+    const slug = bookSlug;
+    const ci = parseInt(chapterIdx);
+    const my = ++gen;
+    loading = true;
+    error = null;
+    (async () => {
+      try {
+        const [content, all] = await Promise.all([getChapterContent(slug, ci), listChapters(slug)]);
+        if (my !== gen) return; // 路由已切走，丢弃过期结果
+        if (!content) return;
+        book = content.book;
+        chapter = content.chapter;
+        paragraphs = content.paragraphs;
+        chapters = all;
+        idx = ci;
+      } catch (e) {
+        if (my !== gen) return;
+        error = e instanceof Error ? e.message : String(e);
+      } finally {
+        if (my === gen) loading = false;
+      }
+    })();
+  });
 </script>
 
-{#if book && chapter}
+{#if loading}
+  <main class="page center-miss"><p class="loading">加载中…</p></main>
+{:else if error}
+  <main class="page center-miss">
+    <p class="err">古籍库加载失败：{error}</p>
+    <a href="#/library" class="crumb">← 返回古籍库</a>
+  </main>
+{:else if book && chapter}
   <main class="page">
     <div class="head">
       <a class="crumb" href="#/library/{book.slug}">← 《{book.title}》目录</a>
@@ -28,7 +66,7 @@
     </div>
 
     <div class="body">
-      {#each chapter.paragraphs as p, i}
+      {#each paragraphs as p, i}
         <div class="para" id={p.id}>
           <div class="para-row">
             <span class="p-idx">{String(p.idx).padStart(2, "0")}</span>
@@ -48,15 +86,15 @@
       {#if idx > 0}
         <a class="chapter-nav" href="#/library/{book.slug}/{idx - 1}">
           <div class="cn-label">← 上一章</div>
-          <div class="cn-title">{book.chapters[idx - 1].title}</div>
+          <div class="cn-title">{chapters[idx - 1]?.title}</div>
         </a>
       {:else}
         <div class="spacer"></div>
       {/if}
-      {#if idx < book.chapters.length - 1}
+      {#if idx < chapters.length - 1}
         <a class="chapter-nav right" href="#/library/{book.slug}/{idx + 1}">
           <div class="cn-label">下一章 →</div>
-          <div class="cn-title">{book.chapters[idx + 1].title}</div>
+          <div class="cn-title">{chapters[idx + 1]?.title}</div>
         </a>
       {:else}
         <div class="spacer"></div>
@@ -213,5 +251,14 @@
   .center-miss {
     text-align: center;
     padding-top: 80px;
+  }
+  .loading {
+    color: var(--t-faint);
+    letter-spacing: 0.2em;
+  }
+  .err {
+    color: var(--ji);
+    font-size: 14px;
+    margin-bottom: 16px;
   }
 </style>

@@ -6,7 +6,7 @@
  * 此处精选核心论述，未来可补全。
  */
 
-import type { Book } from '../types';
+import type { Book } from '../../src/lib/classics/types';
 
 export const ziWeiQuanJi: Book = {
   title: '紫微斗数全集',

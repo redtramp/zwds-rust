@@ -1,25 +1,53 @@
 <script lang="ts">
   // 古籍搜索结果页 —— 移植自 Sample/app/library/search/page.tsx（hash 带 ?q=）
-  import { getParagraphById, searchClassics } from "@/lib/classics";
+  // 数据源：SQLite（classics.db）；异步 LIKE 检索（词 AND 语义，见 db.ts searchClassics）
+  import { getParagraphChapterIdxs, searchClassics } from "@/lib/classics";
+  import type { SearchHit } from "@/lib/classics";
 
   let q = $state("");
-  let hits = $state<ReturnType<typeof searchClassics>>([]);
+  let hits = $state<SearchHit[]>([]);
+  let chapterIdxMap = $state<Record<string, number>>({});
+  let searching = $state(false);
+  let searchErr = $state<string | null>(null);
 
+  let gen = 0;
   function runQuery() {
     const raw = window.location.hash.split("?q=")[1] ?? "";
-    q = decodeURIComponent(raw).trim();
-    hits = q ? searchClassics(q, 50) : [];
+    const query = decodeURIComponent(raw).trim();
+    q = query;
+    const my = ++gen;
+    if (!query) {
+      hits = [];
+      chapterIdxMap = {};
+      searching = false;
+      searchErr = null;
+      return;
+    }
+    searching = true;
+    searchErr = null;
+    void (async () => {
+      try {
+        const result = await searchClassics(query, 50);
+        if (my !== gen) return; // 查询已被新查询取代
+        hits = result;
+        chapterIdxMap = await getParagraphChapterIdxs(result.map((h) => h.paragraphId));
+      } catch (e) {
+        if (my !== gen) return;
+        searchErr = e instanceof Error ? e.message : String(e);
+      } finally {
+        if (my === gen) searching = false;
+      }
+    })();
   }
 
-  runQuery();
   $effect(() => {
-    // hash 变化时重新查询
+    // hash 变化时重新查询（挂载时亦执行一次）
     void window.location.hash;
     runQuery();
   });
 
   function chapterOf(paragraphId: string): number {
-    return getParagraphById(paragraphId)?.chapterIdx ?? 0;
+    return chapterIdxMap[paragraphId] ?? 0;
   }
 </script>
 
@@ -34,6 +62,8 @@
     <div class="kw-label">搜索关键词</div>
     <h1>「{q || "（空）"}」</h1>
     <div class="count">共找到 <strong>{hits.length}</strong> 条古籍原文匹配</div>
+    {#if searching}<div class="count searching">检索中…</div>{/if}
+    {#if searchErr}<div class="count err">检索失败：{searchErr}</div>{/if}
   </div>
 
   {#if hits.length === 0}
@@ -116,6 +146,14 @@
   }
   .count strong {
     color: var(--t-gold);
+  }
+  .searching {
+    color: var(--t-faint);
+    margin-top: 4px;
+  }
+  .err {
+    color: var(--ji);
+    margin-top: 4px;
   }
   .empty {
     background: var(--t-card);

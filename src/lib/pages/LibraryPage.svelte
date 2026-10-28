@@ -1,8 +1,45 @@
 <script lang="ts">
   // 古籍库主页 —— 移植自 Sample/app/library/page.tsx（书卡列表 + 搜索入口）
-  import { ALL_BOOKS, TOTAL_PARAGRAPHS } from "@/lib/classics";
+  // 数据源：SQLite（classics.db）；10 分类 pill + 书卡，异步加载
+  import { listBooks, getStats } from "@/lib/classics";
+  import type { BookSummary, LibraryStats } from "@/lib/classics";
+
+  const CATEGORIES = ["全部", "紫微斗数", "周易", "命理", "奇门遁甲", "六壬", "堪舆风水", "占卜", "相术", "其他", "现代"];
 
   let query = $state("");
+  let activeCat = $state("全部");
+  let books = $state<BookSummary[]>([]);
+  let stats = $state<LibraryStats | null>(null);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+  let statsLoaded = $state(false);
+
+  let gen = 0;
+  async function load(cat: string) {
+    const my = ++gen;
+    loading = true;
+    error = null;
+    try {
+      const list = await listBooks(cat === "全部" ? undefined : cat);
+      if (my !== gen) return; // 切换已被取代
+      books = list;
+    } catch (e) {
+      if (my !== gen) return;
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      if (my === gen) loading = false;
+    }
+  }
+
+  $effect(() => {
+    void load(activeCat);
+    if (!statsLoaded) {
+      statsLoaded = true;
+      getStats()
+        .then((s) => (stats = s))
+        .catch(() => (stats = null));
+    }
+  });
 
   function doSearch() {
     const q = query.trim();
@@ -13,43 +50,62 @@
 
 <main class="page">
   <div class="hero">
-    <div class="deco"><span class="line"></span><span class="tag">NI HAI XIA · CURRICULUM</span><span class="line"></span></div>
-    <h1>倪师方法论 · 古籍原典库</h1>
+    <div class="deco"><span class="line"></span><span class="tag">SHUSHU · CLASSICS</span><span class="line"></span></div>
+    <h1>数术古籍原典库</h1>
     <p class="intro">
-      紫微斗数权威古籍全文检索<br />
-      收录 <strong>{ALL_BOOKS.length}</strong> 部古籍 · 共 <strong>{TOTAL_PARAGRAPHS}</strong> 段精华
+      九大门类传世古籍全文检索<br />
+      {#if stats}
+        收录 <strong>{stats.bookCount}</strong> 部古籍 · 共 <strong>{stats.paragraphCount.toLocaleString()}</strong> 段原文
+      {:else}
+        收录中…
+      {/if}
     </p>
     <input
       class="search"
       type="text"
-      placeholder="搜索古籍原文，如：七杀朝斗 / 化忌 / 机月同梁"
+      placeholder="搜索古籍原文，如：紫微 / 奇门 / 六壬 / 风水 / 梅花"
       bind:value={query}
       onkeydown={(e) => e.key === "Enter" && doSearch()}
     />
   </div>
 
-  <div class="books">
-    {#each ALL_BOOKS as book}
-      <a class="book" href="#/library/{book.slug}">
-        <div class="meta">{book.dynasty} · {book.author.split(" ")[0]}</div>
-        <div class="title">《{book.title}》</div>
-        <div class="intro">{book.intro}</div>
-        <div class="stats">
-          <span>{book.chapters.length} 章节</span>
-          <span class="dot">·</span>
-          <span>{book.chapters.reduce((s, c) => s + c.paragraphs.length, 0)} 段精华</span>
-        </div>
-        <div class="go">进入查阅 →</div>
-      </a>
+  <div class="cats">
+    {#each CATEGORIES as cat}
+      <button class="cat-pill" class:active={activeCat === cat} onclick={() => (activeCat = cat)}>
+        {cat}
+      </button>
     {/each}
   </div>
+
+  {#if loading}
+    <div class="state"><span class="loading">加载中…</span></div>
+  {:else if error}
+    <div class="state"><span class="err">古籍库加载失败：{error}</span></div>
+  {:else if books.length === 0}
+    <div class="state"><span>该分类暂无收录。</span></div>
+  {:else}
+    <div class="books">
+      {#each books as book}
+        <a class="book" href="#/library/{book.slug}">
+          <div class="meta">{book.category} · {book.dynasty} · {book.author.split(" ")[0]}</div>
+          <div class="title">《{book.title}》</div>
+          <div class="intro">{book.intro}</div>
+          <div class="stats">
+            <span>{book.chapterCount} 章节</span>
+            <span class="dot">·</span>
+            <span>{book.paragraphCount} 段原文</span>
+          </div>
+          <div class="go">进入查阅 →</div>
+        </a>
+      {/each}
+    </div>
+  {/if}
 
   <div class="about">
     <div class="about-title">关于本库</div>
     <div class="about-body">
-      所收录古籍均为公版（明代刊本）。<br />
-      内容持续完善，未来将补全《紫微斗数全集》全本与倪海厦《天纪》引证目录。<br />
-      如发现任何错误请联系我们。
+      来源含 shushubook 术数书库（9 类 201 部）与 3 部紫微斗数精选，另含少量现代著作。<br />
+      内容持续完善，如发现任何错误请联系我们。
     </div>
   </div>
 </main>
@@ -111,6 +167,44 @@
   }
   .search:focus {
     border-color: rgba(212, 168, 67, 0.5);
+  }
+  .cats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 28px;
+  }
+  .cat-pill {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--t-faint);
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+  }
+  .cat-pill:hover {
+    color: var(--t-text);
+  }
+  .cat-pill.active {
+    color: var(--t-gold);
+    background: rgba(212, 168, 67, 0.1);
+  }
+  .state {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--t-text2);
+    font-size: 14px;
+  }
+  .loading {
+    color: var(--t-faint);
+    letter-spacing: 0.2em;
+  }
+  .err {
+    color: var(--ji);
   }
   .books {
     display: grid;

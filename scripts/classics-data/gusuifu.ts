@@ -5,7 +5,7 @@
  * 倪师在《天纪》中多次援引此赋。
  */
 
-import type { Book } from '../types';
+import type { Book } from '../../src/lib/classics/types';
 
 export const guSuiFu: Book = {
   title: '骨髓赋',

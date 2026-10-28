@@ -5,7 +5,7 @@
  * 是紫微斗数最系统的古籍，强调宫位关系与四化，全本约 10 万字。
  */
 
-import type { Book } from '../types';
+import type { Book } from '../../src/lib/classics/types';
 
 export const ziWeiQuanShu: Book = {
   title: '紫微斗数全书',

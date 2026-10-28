@@ -183,6 +183,11 @@ pub async fn ai_chat(
             question.as_deref(),
             messages,
         )),
+        AiRequest::Qimen {
+            persona,
+            chart_text,
+            messages,
+        } => crate::ai::prompt::build_qimen_messages(persona, chart_text, messages),
     };
     let messages = match messages {
         Ok(m) => m,

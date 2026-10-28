@@ -5,6 +5,7 @@
   import { theme, applyTheme, toggleTheme } from "@/lib/stores/theme.svelte";
   import { applyAppearance } from "@/lib/stores/appearance.svelte";
   import ChartPage from "@/lib/pages/ChartPage.svelte";
+  import QimenPage from "@/lib/pages/QimenPage.svelte";
   import HemingPage from "@/lib/pages/HemingPage.svelte";
   import KnowledgePage from "@/lib/pages/KnowledgePage.svelte";
   import KnowledgeStarPage from "@/lib/pages/KnowledgeStarPage.svelte";
@@ -38,6 +39,7 @@
   const NAV = [
     { hash: "/", label: "首页" },
     { hash: "/chart", label: "排盘" },
+    { hash: "/qimen", label: "奇门" },
     { hash: "/heming", label: "合盘" },
     { hash: "/knowledge", label: "百科" },
     { hash: "/library", label: "古籍" },
@@ -55,7 +57,7 @@
 
 <div
   class="shell"
-  class:fixed={route.segments[0] === "chart" || route.segments[0] === "heming" || route.segments[0] === "knowledge"}
+  class:fixed={route.segments[0] === "chart" || route.segments[0] === "heming" || route.segments[0] === "qimen" || route.segments[0] === "knowledge"}
 >
   <header class="topbar">
     <a class="brand" href="#/">紫微斗数</a>
@@ -72,6 +74,8 @@
   <div class="content">
     {#if route.segments[0] === "chart"}
       <ChartPage />
+    {:else if route.segments[0] === "qimen"}
+      <QimenPage />
     {:else if route.segments[0] === "heming"}
       <HemingPage />
     {:else if route.segments[0] === "knowledge"}

@@ -84,6 +84,12 @@ pub enum AiRequest {
         question: Option<String>,
         messages: Vec<ChatMsg>,
     },
+    /// 奇门页解读（仅时家/刻家；金函玉镜/整体三盘前端不接线）
+    Qimen {
+        persona: String,
+        chart_text: String,
+        messages: Vec<ChatMsg>,
+    },
 }
 
 /// AI 流事件（Rust → 前端，经 tauri::ipc::Channel）
@@ -197,6 +203,22 @@ mod tests {
         let parsed: AiRequest = serde_json::from_str(heming).unwrap();
         match parsed {
             AiRequest::Heming { question, .. } => assert_eq!(question.as_deref(), Some("合适吗")),
+            other => panic!("unexpected variant: {other:?}"),
+        }
+
+        let qimen = r#"{
+            "kind": "qimen",
+            "persona": "master",
+            "chartText": "干支：丙午年丁酉月…",
+            "messages": [ { "role": "user", "content": "分析盤局" } ]
+        }"#;
+        let parsed: AiRequest = serde_json::from_str(qimen).unwrap();
+        match parsed {
+            AiRequest::Qimen { persona, chart_text, messages } => {
+                assert_eq!(persona, "master");
+                assert!(chart_text.contains("丙午年"));
+                assert_eq!(messages.len(), 1);
+            }
             other => panic!("unexpected variant: {other:?}"),
         }
     }

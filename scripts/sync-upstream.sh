@@ -5,7 +5,7 @@
 # 用法（在本仓库根目录执行）：
 #   scripts/sync-upstream.sh status   查看上游更新（基线 vs 最新）[默认]
 #   scripts/sync-upstream.sh diff     查看移植相关目录的完整 diff
-#   scripts/sync-upstream.sh test     跑 10 套排盘引擎回归测试
+#   scripts/sync-upstream.sh test     跑回归测试（10 套引擎 + 1 套奇门）
 #   scripts/sync-upstream.sh mark     基线更新到上游最新 commit（移植完成且测试通过后执行）
 #
 # 环境变量：

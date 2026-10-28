@@ -7,16 +7,18 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "tsx scripts/regression/pan-integrity.test.ts && tsx scripts/regression/dst-cn.test.ts && tsx scripts/regression/clock-adjust.test.ts && tsx scripts/regression/sizhu-lichun-boundary.test.ts && tsx scripts/regression/hongluan-tianxi.test.ts && tsx scripts/regression/famous-hour-consistency.test.ts && tsx scripts/regression/iztro-time-index-boundary.test.ts && tsx scripts/regression/solar-date-exists.test.ts && tsx scripts/regression/natal-dual-sihua-same-palace.test.ts && tsx scripts/regression/neutral-naming.test.ts",
+    "test": "tsx scripts/regression/pan-integrity.test.ts && tsx scripts/regression/dst-cn.test.ts && tsx scripts/regression/clock-adjust.test.ts && tsx scripts/regression/sizhu-lichun-boundary.test.ts && tsx scripts/regression/hongluan-tianxi.test.ts && tsx scripts/regression/famous-hour-consistency.test.ts && tsx scripts/regression/iztro-time-index-boundary.test.ts && tsx scripts/regression/solar-date-exists.test.ts && tsx scripts/regression/natal-dual-sihua-same-palace.test.ts && tsx scripts/regression/neutral-naming.test.ts && tsx scripts/regression/qimen-engine.test.ts",
     "tauri": "tauri",
     "icon": "node scripts/gen-icon.mjs && tauri icon scripts/icon-source.png"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-sql": "^2.6.0",
     "iztro": "2.5.8",
     "lunar-javascript": "1.7.3"
   },
   "devDependencies": {
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.5",

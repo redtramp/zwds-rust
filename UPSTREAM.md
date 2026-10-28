@@ -24,7 +24,7 @@
 | `lib/classics/` | `src/lib/classics/` | 古籍数据，原样移植 |
 | `components/` | `src/lib/components/` | TSX → Svelte 5，逻辑 1:1 保留，样式令牌化 |
 | `app/` | `src/lib/pages/` | Next.js 路由 → hash 路由 |
-| `scripts/regression/` | `scripts/regression/` | 10 套回归测试，与上游 CI 完全一致（同步后的验证安全网） |
+| `scripts/regression/` | `scripts/regression/` | 10 套引擎回归测试与上游 CI 完全一致（同步后的验证安全网）+ 1 套奇门引擎回归（本项目自研功能） |
 | `lib/nihai/`、`lib/seo/`、`lib/site.ts` | — | 未移植（Next.js 特有 / SEO 功能，桌面版不需要） |
 
 ## 同步流程
@@ -35,7 +35,7 @@
 scripts/sync-upstream.sh status   # ① 查看上游更新（基线 vs 最新，列出新 commit 与移植相关目录变更）
 scripts/sync-upstream.sh diff     # ② 查看移植相关目录的完整 diff
 # ③ 按上方对照表把变更移植到本仓库对应目录（人工）
-npm test                          # ④ 跑 10 套回归测试验证移植
+npm test                          # ④ 跑回归测试验证移植（10 套引擎 + 1 套奇门）
 scripts/sync-upstream.sh mark     # ⑤ 基线更新到上游最新 commit（会同时改写本文件的基线行）
 git add -A && git commit          # ⑥ 提交移植结果与新的基线
 ```

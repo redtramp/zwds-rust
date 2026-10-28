@@ -568,6 +568,73 @@ pub fn build_heming_messages(
     msgs
 }
 
+/* ---------- 奇門遁甲（kinqimen 移植） ---------- */
+
+/// 5 人设键 —— 与前端 QimenPersonaKey 一一对应（设计 B6）
+pub const QIMEN_PERSONA_KEYS: [&str; 5] = ["master", "strategist", "diviner", "fashu", "soccer"];
+
+/// 5 个人设 prompt —— **逐字**移植自 kinqimen/data/system_prompts.json
+/// （繁体原文与段落格式原样保留，不翻译不改写）
+pub fn qimen_persona(key: &str) -> Option<&'static str> {
+    Some(match key {
+        "master" => r#"你是一位奇門遁甲大師，精通《奇門遁甲統宗》、《奇門遁甲秘笈大全》、《煙波釣叟歌》等古籍及歷史案例。請根據提供的奇門遁甲排盤數據，進行以下操作：
+
+1. 解釋盤局的關鍵要素（九宮、天盤、地盤、九星、八門、八神、值符值使等）。
+2. 結合奇門遁甲理論，分析盤局的吉凶格局（如奇儀吉格、凶格）和潛在影響。
+3. 詳細評估各宮位的組合關係（天盤星、門、神與地盤的搭配）。
+4. 提供實用的建議或應對策略。
+
+請以清晰的結構（分段、標題）呈現，語言專業且易懂，適當引用歷史案例或經典理論。"#,
+        "strategist" => r#"你是一位滿腹經綸的軍師謀略家，精通奇門遁甲三式之一的奇門遁甲，深諳行兵布陣之法，熟悉《奇門遁甲統宗》、《煙波釣叟歌》、《遁甲演義》的用法以及歷史案例。請根據提供的奇門遁甲排盤數據，進行以下操作：
+
+1. 解釋盤局的關鍵要素（天盤、地盤、九星、八門、八神），分析攻守雙方優劣。
+2. 結合奇門遁甲經典理論，分析盤局的吉凶和潛在影響。
+3. 評估值符值使的落宮及其對整體格局的主導作用。
+4. 提供實用的行動建議或應對策略（出行、求財、用事方向等）。
+
+請以清晰的結構（分段、標題）呈現，語言專業且易懂，適當引用歷史案例或經典理論。"#,
+        "diviner" => r#"你是一位精通奇門遁甲占卜的命理師，熟稔《奇門遁甲統宗》、《遁甲演義》及相關古籍，專注於通過奇門遁甲預測個人事務的吉凶禍福。請根據提供的奇門遁甲排盤數據，進行以下操作：
+
+1. 盤局關鍵要素解釋：分析九宮、天盤地盤奇儀搭配、九星、八門、八神的落宮位置及象徵意義。
+2. 吉凶格局判斷：辨識奇儀吉格（如乙奇得使、丙奇得使等）與凶格（如白虎猖狂、騰蛇夭矯等），分析其對事項的影響。
+3. 用神與方位分析：根據所問事項找出用神所在宮位，結合天盤星、門、神進行綜合判斷。
+4. 提供具體的行動建議，包括吉方、吉時及注意事項。
+
+請以清晰的結構呈現，語言專業且通俗易懂。"#,
+        "fashu" => r#"你是一位精通法術奇門遁甲的大師，熟悉閉六戊法、真人閉六戊法、符咒祈禳等法術奇門應用，同時精通《奇門遁甲統宗》、《奇門法竅》中的法術奇門篇章。請根據提供的奇門遁甲排盤數據，進行以下操作：
+
+1. 分析盤局中天盤、地盤、九星、八門、八神的格局。
+2. 結合法術奇門理論，判斷當前適宜的法術應用方向。
+3. 分析閉六戊法的旬首落宮及六戊連土路徑的影響。
+4. 提供法術施行的建議（時機、方位、注意事項）。
+
+請以清晰結構呈現，語言專業但易懂。"#,
+        "soccer" => r#"你是一位精通奇門遁甲的足球比賽預測大師，運用奇門遁甲盤局分析比賽結果。請根據提供的奇門遁甲排盤數據，進行以下操作：
+
+1. 分析主客雙方優劣（以值符值使、天盤地盤格局判斷），預測比賽勝平負。
+2. 預測上半場結果。
+3. 預測上半場入球大小。
+4. 預測全場入球大小。"#,
+        _ => return None,
+    })
+}
+
+/// 奇门：[system(人设 + 當前排盤數據供參考), ...history]
+/// 拼装方式与 kinqimen/app.py L1257-1271 一致；chartText 由前端 TS 构建
+/// （engine/qimen engine.ts formatChartText，1:1 移植 app.py L179-212）
+pub fn build_qimen_messages(
+    persona_key: &str,
+    chart_text: &str,
+    history: &[ChatMsg],
+) -> Result<Vec<ChatMsg>, String> {
+    let base = qimen_persona(persona_key)
+        .ok_or_else(|| format!("奇門人設不存在: {persona_key}"))?;
+    let system = format!("{base}\n\n以下是當前排盤數據供參考：\n{chart_text}");
+    let mut msgs = vec![ChatMsg::system(system)];
+    msgs.extend_from_slice(history);
+    Ok(msgs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -724,5 +791,35 @@ mod tests {
             .unwrap();
             assert!(msgs[1].content.starts_with(prefix), "{prefix} 模板开头不符");
         }
+    }
+
+    #[test]
+    fn qimen_personas_verbatim_and_assembly() {
+        // 5 人设逐字移植 kinqimen/data/system_prompts.json —— 开头/结尾/特征句钉住
+        assert_eq!(QIMEN_PERSONA_KEYS.len(), 5);
+        for key in QIMEN_PERSONA_KEYS {
+            let p = qimen_persona(key).unwrap();
+            assert!(p.starts_with('你'), "{key} 人设开头不符");
+        }
+        assert!(qimen_persona("master").unwrap().starts_with("你是一位奇門遁甲大師，精通《奇門遁甲統宗》"));
+        assert!(qimen_persona("master").unwrap().ends_with("適當引用歷史案例或經典理論。"));
+        assert!(qimen_persona("strategist").unwrap().contains("《遁甲演義》的用法以及歷史案例"));
+        assert!(qimen_persona("diviner").unwrap().contains("白虎猖狂、騰蛇夭矯"));
+        assert!(qimen_persona("fashu").unwrap().contains("閉六戊法、真人閉六戊法、符咒祈禳"));
+        assert!(qimen_persona("soccer").unwrap().ends_with("4. 預測全場入球大小。"));
+        assert!(qimen_persona("nope").is_none());
+
+        // 拼装：system = 人设 + 當前排盤數據供參考 + chartText；history 原样追加
+        let history = vec![ChatMsg::user("請對當前盤局進行完整分析。")];
+        let msgs = build_qimen_messages("master", "干支：丙午年丁酉月…", &history).unwrap();
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].role, "system");
+        assert!(msgs[0].content.starts_with("你是一位奇門遁甲大師"));
+        assert!(msgs[0].content.contains("以下是當前排盤數據供參考："));
+        assert!(msgs[0].content.ends_with("干支：丙午年丁酉月…"));
+        assert_eq!(msgs[1].content, "請對當前盤局進行完整分析。");
+
+        // 无效人设 → Err（ai_chat 走 InvalidConfig 事件）
+        assert!(build_qimen_messages("nope", "x", &[]).is_err());
     }
 }

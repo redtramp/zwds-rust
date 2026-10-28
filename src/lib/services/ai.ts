@@ -9,6 +9,9 @@ export type TopicKey =
   | "health"
   | "personality";
 
+/** 奇门 5 人设键（与 Rust QIMEN_PERSONA_KEYS 一一对应，逐字移植 kinqimen/data/system_prompts.json） */
+export type QimenPersonaKey = "master" | "strategist" | "diviner" | "fashu" | "soccer";
+
 export type InterpretIntent =
   | { topic: TopicKey }
   | { branch: number }
@@ -32,6 +35,12 @@ export type AiRequest =
       chartA: unknown;
       chartB: unknown;
       question: string | null;
+      messages: ChatMsg[];
+    }
+  | {
+      kind: "qimen";
+      persona: QimenPersonaKey;
+      chartText: string;
       messages: ChatMsg[];
     };
 

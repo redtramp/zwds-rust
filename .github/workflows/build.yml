@@ -1,0 +1,146 @@
+# 紫微斗数 桌面应用 —— 跨平台构建 / GitHub Release
+#
+# 触发方式：
+#   · 推送 app-v* 标签（如 app-v0.1.0，版本号须与 src-tauri/tauri.conf.json 一致）
+#       → 构建 Linux / Windows / macOS 三平台，并创建 Draft Release（GitHub 页面审核发布）
+#   · 手动（Actions 页 → Build & Release → Run workflow）
+#       → 只构建并把产物作为 workflow artifacts 上传，不创建 Release（用于试跑）
+#
+# 签名说明：
+#   · macOS：无 Apple 开发者证书，使用 ad-hoc 签名（APPLE_SIGNING_IDENTITY=-）。
+#     Apple Silicon 用户下载后需到「系统设置 → 隐私与安全性」放行一次。
+#     将来取得证书后：将 APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD /
+#     APPLE_SIGNING_IDENTITY / APPLE_TEAM_ID 等放入仓库 Secrets
+#     （见 https://v2.tauri.app/distribute/sign/macos/），并删除「macOS ad-hoc 签名」步骤。
+#   · Windows：未签名（无 EV/OV 证书时正常现象，SmartScreen 会提示）。
+#
+# 发版流程：bump src-tauri/tauri.conf.json 的 version → 提交 → git tag app-v<version> && git push --tags
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'app-v*'
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: '1'
+
+jobs:
+  test:
+    name: 引擎回归（10 套）+ Rust 单测
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 Linux 系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 排盘引擎回归（10 套，与上游 CI 一致）
+        run: pnpm test
+
+      - name: Rust 核心单测
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  build:
+    name: 构建 ${{ matrix.name }}
+    needs: test
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - name: macOS (Intel)
+            platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+          - name: Linux (x86_64)
+            platform: ubuntu-22.04
+            args: ''
+          - name: Windows (x86_64)
+            platform: windows-latest
+            args: ''
+          # 公开仓库可免费追加 Linux ARM64（GitHub 公共 arm runner）：
+          # - name: Linux (ARM64)
+          #   platform: ubuntu-22.04-arm
+          #   args: ''
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 Linux 系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # macOS 双架构交叉编译需要两个 target
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: 安装前端依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: macOS ad-hoc 签名（无 Apple 证书时的替代方案）
+        if: runner.os == 'macOS'
+        shell: bash
+        run: echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+
+      - name: 构建并上传
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # 仅标签触发时创建 Release；手动运行只上传 workflow artifacts
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && 'app-v__VERSION__' || '' }}
+          releaseName: '紫微斗数 v__VERSION__'
+          releaseBody: |
+            紫微斗数 桌面应用（Tauri 2 + Svelte 5 + Rust）—— 排盘 / 合盘 / 命理百科 / 古籍原典库全部本地运行，AI 解读对接自有 OpenAI 兼容提供商（支持 Ollama 离线）。
+
+            安装：
+            - Linux：.deb（Debian/Ubuntu）/ .rpm（Fedora 等）/ .AppImage
+            - Windows：.msi（传统安装程序）/ .exe（NSIS 安装程序）
+            - macOS：.dmg（Apple Silicon / Intel；ad-hoc 签名，首次打开请在「隐私与安全性」中放行）
+
+            排盘引擎上游同步基线见仓库 [UPSTREAM.md](https://github.com/redtramp/zwds-rust/blob/main/UPSTREAM.md)。
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

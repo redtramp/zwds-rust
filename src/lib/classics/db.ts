@@ -1,8 +1,10 @@
 /**
  * 古籍原典库 — SQLite 数据层（运行时）
  *
- * 数据库随包携带（src-tauri/resources/classics.db），启动时由 Rust 显式拷贝到应用数据目录
- * （tauri-plugin-sql 的 'sqlite:classics.db' 解析到 app_data_dir，设计文档 M1）。
+ * 数据库随包携带（src-tauri/resources/classics.db），运行时落点三级解析（Rust 侧，设计文档 R17）：
+ * 程序同目录（主）→ 打包资源就地读 → 应用配置目录（兜底）。
+ * 连接锚点由 Rust 命令 classics_db_path 返回绝对路径（plugin-sql 2.6 的相对路径钉死
+ * app_config_dir，绝对路径经其 PathBuf::push 替换 base 后直达目标文件）。
  * 所有读取走本模块异步 API；页面层不直接写 SQL。只读纪律：仅发 SELECT。
  */
 import Database from '@tauri-apps/plugin-sql';
@@ -11,12 +13,13 @@ import type { Paragraph, SearchHit } from './types';
 
 let dbPromise: Promise<Database> | null = null;
 
-/** 惰性连接（setup 自动初始化的双保险：先确保文件就位；autoCreate=false → 缺文件时抛错而非静默建空库） */
+/** 惰性连接（setup 自动初始化的双保险：先确保文件就位，再取解析后的绝对路径连接；autoCreate=false → 缺文件时抛错而非静默建空库） */
 export function getDb(): Promise<Database> {
   if (!dbPromise) {
     const p = (async () => {
       await invoke('classics_db_init');
-      return await Database.load('sqlite:classics.db', { autoCreate: false });
+      const dbPath = await invoke<string>('classics_db_path');
+      return await Database.load(`sqlite:${dbPath}`, { autoCreate: false });
     })();
     p.catch(() => {
       dbPromise = null; // 失败允许下次调用重试

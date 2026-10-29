@@ -16,7 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_sql::Builder::new().build())
         .setup(|app| {
-            // 启动时确保古籍原典库（classics.db）就位：resource → 应用数据目录显式拷贝（设计 M1）
+            // 启动时确保古籍原典库（classics.db）就位：主拷贝程序同目录，只读布局按需回落（设计 M1/R17）
             if let Err(e) = classics::init(app.handle()) {
                 eprintln!("classics.db 初始化失败：{e}");
             }
@@ -47,6 +47,7 @@ pub fn run() {
             commands::ai_chat,
             commands::ai_cancel,
             classics::classics_db_init,
+            classics::classics_db_path,
             classics::classics_db_reset,
         ])
         .run(tauri::generate_context!())

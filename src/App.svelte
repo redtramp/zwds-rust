@@ -72,10 +72,14 @@
   </header>
 
   <div class="content">
-    {#if route.segments[0] === "chart"}
-      <ChartPage />
-    {:else if route.segments[0] === "qimen"}
-      <QimenPage />
+    {#if route.segments[0] === "chart" || route.segments[0] === "qimen"}
+      <!-- 排盘/奇门常驻页：始终挂载、以 display 切换，跨页切换保留表单、盘面与 AI 会话状态 -->
+      <div class="page-slot" class:off={route.segments[0] !== "chart"}>
+        <ChartPage />
+      </div>
+      <div class="page-slot" class:off={route.segments[0] !== "qimen"}>
+        <QimenPage />
+      </div>
     {:else if route.segments[0] === "heming"}
       <HemingPage />
     {:else if route.segments[0] === "knowledge"}
@@ -186,6 +190,14 @@
   }
   .shell.fixed .content {
     overflow: hidden;
+  }
+  /* 常驻页槽位：保持高度链，非当前路由以 display 隐藏（状态不丢） */
+  .page-slot {
+    height: 100%;
+    min-height: 0;
+  }
+  .page-slot.off {
+    display: none;
   }
   .placeholder-page {
     max-width: 720px;

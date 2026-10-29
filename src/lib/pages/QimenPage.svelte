@@ -3,10 +3,12 @@
   // - 盘型 4 种：时家 / 刻家 / 金函玉鏡（日家）/ 整体三盘综合；排盘方式 2 种：拆補 / 置閏（金函玉鏡无此项，禁用）
   // - AI 解读：5 人设（Rust QIMEN_PERSONAS 逐字移植 kinqimen/data/system_prompts.json）
   //   显式点击生成 + 自由对话（与 kinqimen 的「AI分析排盘结果」+「智能问答」双按钮对齐）
-  // - 金函玉鏡 / 整体盘型不提供 AI 解读（T1 裁决：忠实 kinqimen 行为）
+  // - 4 种盘型均提供 AI 解读（T1 反转，R14：整体 = 三盘文本拼接；
+  //   引擎输出繁体，发给 AI 前经 toSimp，系统 prompt 钉住简体输出）
   import QimenBoard from "@/lib/components/QimenBoard.svelte";
-  import { Qimen, formatChartText } from "@/lib/engine/qimen/engine";
+  import { Qimen, formatChartText, formatJinyinChartText } from "@/lib/engine/qimen/engine";
   import { lunarDateD } from "@/lib/engine/qimen/calendar";
+  import { toSimp } from "@/lib/engine/qimen/simp";
   import {
     aiChat, aiErrorText,
     type AiSession, type ChatMsg, type QimenPersonaKey,
@@ -16,22 +18,29 @@
   interface Msg { role: "user" | "assistant"; content: string; }
 
   const PERSONAS: { key: QimenPersonaKey; label: string }[] = [
-    { key: "master", label: "奇門大師" },
-    { key: "strategist", label: "軍師謀略" },
-    { key: "diviner", label: "占卜師" },
-    { key: "fashu", label: "法術大師" },
-    { key: "soccer", label: "足球預測" },
+    { key: "master", label: "奇门大师" },
+    { key: "strategist", label: "军师谋略" },
+    { key: "diviner", label: "占卜师" },
+    { key: "fashu", label: "法术大师" },
+    { key: "soccer", label: "足球预测" },
   ];
-  const KINDS: { k: PanKind; l: string }[] = [
-    { k: "shijia", l: "時家奇門" },
-    { k: "kejia", l: "刻家奇門" },
-    { k: "jinyin", l: "金函玉鏡（日家）" },
-    { k: "overall", l: "整體三盤綜合" },
+  const KINDS: { k: PanKind; l: string; d: string }[] = [
+    { k: "shijia", l: "时家奇门", d: "主流法，按时辰起盘" },
+    { k: "kejia", l: "刻家奇门", d: "细分到分钟，带暗干" },
+    { k: "jinyin", l: "金函玉镜 · 日家", d: "日家单盘" },
+    { k: "overall", l: "整体三盘综合", d: "三盘同出" },
+  ];
+  const OPTS: { v: 1 | 2; l: string; d: string }[] = [
+    { v: 1, l: "拆补", d: "节气交界直接换局" },
+    { v: 2, l: "置闰", d: "置闰局过渡衔接" },
   ];
 
   const SHICHEN = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
   const shichenOf = (h: number) => SHICHEN[Math.floor(((h + 1) % 24) / 2)];
-  const HOURS = Array.from({ length: 24 }, (_, h) => ({ h, label: `${shichenOf(h)}時 ${h}:00` }));
+  const HOURS = Array.from({ length: 24 }, (_, h) => ({ h, label: `${shichenOf(h)}时 ${h}:00` }));
+  const YEARS = Array.from({ length: 201 }, (_, i) => 1900 + i);
+  const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+  const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
   // 表单默认 = 当前时间（kinqimen 即时盘口径）
   const now = new Date();
@@ -43,6 +52,13 @@
   let kind = $state<PanKind>("shijia");
   let option = $state<1 | 2>(2); // kinqimen 默认 pai=2（置闰法）
   let panError = $state("");
+
+  // 当月天数随年月联动（2 月 31 日等不可能日期不可选；非法值兜底收敛到月末）
+  const daysInMonth = $derived(new Date(year, month, 0).getDate());
+  const DAYS = $derived(Array.from({ length: daysInMonth }, (_, i) => i + 1));
+  $effect(() => {
+    if (day > daysInMonth) day = daysInMonth;
+  });
 
   let shijiaChart = $state<Record<string, any> | null>(null);
   let kejiaChart = $state<Record<string, any> | null>(null);
@@ -72,19 +88,32 @@
       noProvider = false;
     } catch (e) {
       // 无效日期（如 2 月 31 日）在历法桥接层抛错 —— 显式兜底，不崩 webview
-      panError = `起盤失敗：請檢查日期是否有效（${String(e)}）`;
+      panError = `起盘失败：请检查日期是否有效（${String(e)}）`;
     }
   }
 
-  function buildChartText(): string {
-    const isShijia = kind === "shijia";
-    const q = (isShijia ? shijiaChart : kejiaChart) as Record<string, any>;
-    // formatChartText 前 4 个字符串参数为原文签名占位（实际取值以 q 为准，见 engine.ts L928-940）
+  function shijiaOrKejiaText(chart: Record<string, any>, isShijia: boolean): string {
+    // formatChartText 前 4 个字符串参数为原文签名占位（实际取值以 chart 为准，见 engine.ts L928-940）
     return formatChartText(
-      String(q["干支"] ?? ""), String(q["節氣"] ?? ""),
-      lunarDateD(year, month, day).lunarMonth, String(q["排盤方式"] ?? ""),
-      q, isShijia, year, month, day, hour, minute,
+      String(chart["干支"] ?? ""), String(chart["節氣"] ?? ""),
+      lunarDateD(year, month, day).lunarMonth, String(chart["排盤方式"] ?? ""),
+      chart, isShijia, year, month, day, hour, minute,
     );
+  }
+
+  /** AI 盘面文本：4 种盘型（整体 = 三盘拼接）；引擎输出为繁体，发给 AI 前统一过 toSimp */
+  function buildChartText(): string {
+    let raw: string;
+    if (kind === "shijia") raw = shijiaOrKejiaText(shijiaChart!, true);
+    else if (kind === "kejia") raw = shijiaOrKejiaText(kejiaChart!, false);
+    else if (kind === "jinyin") raw = formatJinyinChartText(jinyinChart!, year, month, day, hour, minute);
+    else
+      raw = [
+        shijiaOrKejiaText(shijiaChart!, true),
+        shijiaOrKejiaText(kejiaChart!, false),
+        formatJinyinChartText(jinyinChart!, year, month, day, hour, minute),
+      ].join("\n\n———\n\n");
+    return toSimp(raw);
   }
 
   function stopSession() {
@@ -116,7 +145,7 @@
 
   function generate() {
     if (loading) stopSession();
-    send([...messages, { role: "user", content: "請對當前盤局進行完整分析。" }]);
+    send([...messages, { role: "user", content: "请对当前盘局进行完整分析。" }]);
   }
   function chat() {
     const t = input.trim();
@@ -125,7 +154,6 @@
     send([...messages, { role: "user", content: t }]);
   }
 
-  const aiReady = $derived(kind === "shijia" || kind === "kejia");
   const shownChart = $derived<Record<string, any> | null>(
     kind === "kejia" ? kejiaChart : kind === "jinyin" ? jinyinChart : shijiaChart,
   );
@@ -136,12 +164,24 @@
   <div class="layout">
     <!-- 左：起盘表单 -->
     <aside class="card form-col">
-      <h2 class="title">奇門遁甲</h2>
+      <h2 class="title">奇门遁甲</h2>
       <div class="label-section">日期</div>
-      <div class="row3">
-        <input class="input-base" type="number" bind:value={year} min={1900} max={2100} aria-label="年">
-        <input class="input-base" type="number" bind:value={month} min={1} max={12} aria-label="月">
-        <input class="input-base" type="number" bind:value={day} min={1} max={31} aria-label="日">
+      <div class="row3 date-row">
+        <select class="input-base" bind:value={year} aria-label="年">
+          {#each YEARS as y (y)}
+            <option value={y}>{y}</option>
+          {/each}
+        </select>
+        <select class="input-base" bind:value={month} aria-label="月">
+          {#each MONTHS as m (m)}
+            <option value={m}>{m}</option>
+          {/each}
+        </select>
+        <select class="input-base" bind:value={day} aria-label="日">
+          {#each DAYS as d (d)}
+            <option value={d}>{d}</option>
+          {/each}
+        </select>
       </div>
       <div class="label-section">时辰</div>
       <div class="row2">
@@ -150,27 +190,33 @@
             <option value={o.h}>{o.label}</option>
           {/each}
         </select>
-        <input class="input-base" type="number" bind:value={minute} min={0} max={59} aria-label="分">
+        <select class="input-base" bind:value={minute} aria-label="分">
+          {#each MINUTES as mi (mi)}
+            <option value={mi}>{mi}</option>
+          {/each}
+        </select>
       </div>
       <div class="label-section">盘型</div>
-      {#each KINDS as o (o.k)}
-        <label class="opt">
-          <input type="radio" name="qk" bind:group={kind} value={o.k}>
-          <span>{o.l}</span>
-        </label>
-      {/each}
-      <div class="label-section">排盘方式{kind === "jinyin" ? "（日家无此项）" : ""}</div>
-      <div class="row2 opt-row">
-        <label class="opt">
-          <input type="radio" name="qo" bind:group={option} value={1} disabled={kind === "jinyin"}>
-          <span>拆補</span>
-        </label>
-        <label class="opt">
-          <input type="radio" name="qo" bind:group={option} value={2} disabled={kind === "jinyin"}>
-          <span>置閏</span>
-        </label>
+      <div class="kind-grid">
+        {#each KINDS as o (o.k)}
+          <label class="kind-card {kind === o.k ? "on" : ""}">
+            <input type="radio" name="qk" bind:group={kind} value={o.k}>
+            <span class="kind-name">{o.l}</span>
+            <span class="kind-desc">{o.d}</span>
+          </label>
+        {/each}
       </div>
-      <button class="btn-primary" onclick={start}>起盤</button>
+      <div class="label-section">排盘方式{kind === "jinyin" ? "（日家无此项）" : ""}</div>
+      <div class="kind-grid">
+        {#each OPTS as o (o.v)}
+          <label class="kind-card {kind === "jinyin" ? "off" : ""} {option === o.v ? "on" : ""}">
+            <input type="radio" name="qo" bind:group={option} value={o.v} disabled={kind === "jinyin"}>
+            <span class="kind-name">{o.l}</span>
+            <span class="kind-desc">{o.d}</span>
+          </label>
+        {/each}
+      </div>
+      <button class="btn-primary" onclick={start}>起盘</button>
       {#if panError}
         <div class="pan-err">{panError}</div>
       {/if}
@@ -179,36 +225,36 @@
     <!-- 中：盘面 -->
     <main class="board-col">
       {#if !shijiaChart}
-        <div class="card placeholder">設定日時後點擊「起盤」</div>
+        <div class="card placeholder">设置日期时间后点击「起盘」</div>
       {:else if kind === "overall"}
         <div class="card-tinted board">
-          <h3 class="board-title">時家奇門 · {shijiaChart["排盤方式"]}</h3>
+          <h3 class="board-title">时家奇门 · {toSimp(String(shijiaChart["排盤方式"] ?? ""))}</h3>
           <QimenBoard kind="shijia" chart={shijiaChart} />
         </div>
         <div class="card-tinted board">
-          <h3 class="board-title">刻家奇門</h3>
+          <h3 class="board-title">刻家奇门</h3>
           <QimenBoard kind="kejia" chart={kejiaChart!} />
         </div>
         <div class="card-tinted board">
-          <h3 class="board-title">金函玉鏡（日家奇門）</h3>
+          <h3 class="board-title">金函玉镜（日家奇门）</h3>
           <QimenBoard kind="jinyin" chart={jinyinChart!} />
         </div>
       {:else}
         <div class="card-tinted board">
           {#if shownKind !== "jinyin"}
             <div class="badges">
-              <span class="badge">干支 {shownChart?.["干支"]}</span>
-              <span class="badge">節氣 {shownChart?.["節氣"]}</span>
-              <span class="badge">{shownChart?.["排局"]}</span>
-              <span class="badge">旬首 {shownChart?.["旬首"]}</span>
-              <span class="badge">旬空 {shownChart?.["旬空"]?.日空} / {shownChart?.["旬空"]?.時空}</span>
-              <span class="badge">值符 {shownChart?.["值符值使"]?.值符星宮?.join("")}</span>
-              <span class="badge">值使 {shownChart?.["值符值使"]?.值使門宮?.join("")}</span>
-              <span class="badge">天乙 {shownChart?.["天乙"]}</span>
+              <span class="badge"><i>干支</i>{toSimp(String(shownChart?.["干支"] ?? ""))}</span>
+              <span class="badge"><i>节气</i>{toSimp(String(shownChart?.["節氣"] ?? ""))}</span>
+              <span class="badge plain">{toSimp(String(shownChart?.["排局"] ?? ""))}</span>
+              <span class="badge"><i>旬首</i>{toSimp(String(shownChart?.["旬首"] ?? ""))}</span>
+              <span class="badge"><i>旬空</i>{toSimp(String(shownChart?.["旬空"]?.日空 ?? ""))} / {toSimp(String(shownChart?.["旬空"]?.時空 ?? ""))}</span>
+              <span class="badge"><i>值符</i>{toSimp((shownChart?.["值符值使"]?.值符星宮 ?? []).join(""))}</span>
+              <span class="badge"><i>值使</i>{toSimp((shownChart?.["值符值使"]?.值使門宮 ?? []).join(""))}</span>
+              <span class="badge"><i>天乙</i>{toSimp(String(shownChart?.["天乙"] ?? ""))}</span>
             </div>
           {:else}
             <div class="badges">
-              <span class="badge">日家局 {shownChart?.["局"]}</span>
+              <span class="badge"><i>日家局</i>{toSimp(String(shownChart?.["局"] ?? ""))}</span>
             </div>
           {/if}
           <QimenBoard kind={shownKind as "shijia" | "kejia" | "jinyin"} chart={shownChart} />
@@ -216,60 +262,73 @@
       {/if}
     </main>
 
-    <!-- 右：AI 面板 -->
+    <!-- 右：AI 面板（4 种盘型均可解盘，R14） -->
     <aside class="card ai-col">
-      <h2 class="title">AI 解盤</h2>
-      {#if !aiReady}
-        <div class="ai-disabled">金函玉鏡 / 整體盤型不提供 AI 解讀（與 kinqimen 行為一致）</div>
-      {:else}
-        <div class="personas">
-          {#each PERSONAS as p (p.key)}
-            <button class="persona {persona === p.key ? "on" : ""}" onclick={() => (persona = p.key)}>
-              {p.label}
-            </button>
-          {/each}
-        </div>
-        <div class="ai-list" bind:this={listEl}>
-          {#if messages.length === 0}
-            <div class="ai-empty">起盤後選擇人設，點擊「生成解盤」</div>
-          {/if}
-          {#each messages as m (m)}
-            <div class="msg {m.role}">{m.content}</div>
-          {/each}
-          {#if noProvider}
-            <div class="ai-err">尚未配置 AI 提供商 —— 請先到「設置」中填寫 API Key</div>
-          {/if}
-        </div>
-        <button class="btn-primary" onclick={generate} disabled={!shijiaChart || loading}>
-          生成解盤
-        </button>
-        <div class="ai-foot">
-          <input
-            class="input-base"
-            placeholder="追加問題…"
-            bind:value={input}
-            onkeydown={(e) => e.key === "Enter" && chat()}
-            disabled={loading}
-          >
-          {#if loading}
-            <button class="btn-ghost" onclick={() => stopSession()}>停止</button>
-          {:else}
-            <button class="btn-ghost" onclick={chat} disabled={!input.trim()}>發送</button>
-          {/if}
-        </div>
-      {/if}
+      <h2 class="title">AI 解盘</h2>
+      <div class="personas">
+        {#each PERSONAS as p (p.key)}
+          <button class="persona {persona === p.key ? "on" : ""}" onclick={() => (persona = p.key)}>
+            {p.label}
+          </button>
+        {/each}
+      </div>
+      <div class="ai-list" bind:this={listEl} aria-live="polite">
+        {#if messages.length === 0}
+          <div class="ai-empty">起盘后选择人设，点击「生成解盘」</div>
+        {/if}
+        {#each messages as m (m)}
+          <div class="msg {m.role}">{m.content}</div>
+        {/each}
+        {#if noProvider}
+          <div class="ai-err">尚未配置 AI 提供商 —— 请先到「设置」中填写 API Key</div>
+        {/if}
+      </div>
+      <button class="btn-primary" onclick={generate} disabled={!shijiaChart || loading}>
+        生成解盘
+      </button>
+      <div class="ai-foot">
+        <input
+          class="input-base"
+          placeholder="追加问题…"
+          bind:value={input}
+          onkeydown={(e) => e.key === "Enter" && chat()}
+          disabled={loading}
+        >
+        {#if loading}
+          <button class="btn-ghost" onclick={() => stopSession()}>停止</button>
+        {:else}
+          <button class="btn-ghost" onclick={chat} disabled={!input.trim()}>发送</button>
+        {/if}
+      </div>
     </aside>
   </div>
 </div>
 
 <style>
   .page {
+    height: 100%;
+    box-sizing: border-box;
     padding-top: 24px;
     padding-bottom: 40px;
+    overflow-y: auto;
+  }
+  /* 表单列窄格：收窄横向内边距，保证 4 位年份与时辰标签完整显示 */
+  .form-col .input-base {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  /* 键盘焦点：墨金焦点环（焦点态必须可见） */
+  .input-base:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-ghost:focus-visible,
+  .persona:focus-visible {
+    outline: none;
+    border-color: var(--ac);
+    box-shadow: 0 0 0 2px var(--ac-bdr);
   }
   .layout {
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr) 330px;
+    grid-template-columns: 300px minmax(0, 1fr) 330px;
     gap: 16px;
     align-items: start;
   }
@@ -287,10 +346,23 @@
     }
   }
   .title {
-    margin: 0 0 14px;
-    font-size: 18px;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    font-family: var(--font-serif);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     color: var(--tx-0);
+  }
+  .title::before {
+    content: "";
+    flex: none;
+    width: 3px;
+    height: 18px;
+    background: var(--ac);
+    border-radius: 1px;
   }
   .form-col,
   .ai-col {
@@ -316,24 +388,65 @@
   .row2 {
     grid-template-columns: 1fr 1fr;
   }
-  .opt {
-    display: flex;
-    align-items: center;
+  /* 日期行：年份 4 位数字略宽，月/日 2 位收窄 */
+  .date-row {
+    grid-template-columns: 1.25fr 1fr 1fr;
+  }
+  /* 盘型 / 排盘方式：可选卡片（名称 + 说明），选中 = 墨金描边 */
+  .kind-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    font-size: 14px;
-    color: var(--tx-1);
-    padding: 6px 0;
+    margin-bottom: 12px;
+  }
+  .kind-card {
+    position: relative;
+    display: block;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--bdr-med);
+    border-radius: var(--r-sm);
     cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .opt input[type="radio"] {
-    accent-color: var(--ac);
+  .kind-card:hover {
+    border-color: var(--tx-3);
   }
-  .opt-row .opt {
-    flex: 1;
+  .kind-card.on {
+    background: var(--ac-bg);
+    border-color: var(--ac);
   }
-  .opt-row .opt:has(input:disabled) {
+  .kind-card.off {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  .kind-card.off:hover {
+    border-color: var(--bdr-med);
+  }
+  .kind-card input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .kind-card:has(input:focus-visible) {
+    border-color: var(--ac);
+    box-shadow: 0 0 0 2px var(--ac-bdr);
+  }
+  .kind-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx-1);
+  }
+  .kind-card.on .kind-name {
+    color: var(--ac-dim);
+  }
+  .kind-desc {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--tx-3);
   }
   .btn-primary {
     width: 100%;
@@ -381,12 +494,16 @@
     min-width: 0;
   }
   .board {
-    padding: 16px;
+    padding: 18px;
   }
   .board-title {
     margin: 0 0 12px;
-    font-size: 14px;
-    font-weight: 600;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ac-bdr);
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     color: var(--tx-0);
   }
   .badges {
@@ -395,19 +512,34 @@
     gap: 6px;
     margin-bottom: 14px;
   }
+  /* 徽标：标签（淡）+ 数值（强）；排局徽标墨金强调 */
   .badge {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
     background: var(--bg-1);
     border: 1px solid var(--bdr);
     border-radius: var(--r-xs);
-    padding: 2px 9px;
+    padding: 3px 9px;
     font-size: 12px;
-    color: var(--tx-2);
+    color: var(--tx-1);
+  }
+  .badge i {
+    font-style: normal;
+    font-size: 11px;
+    color: var(--tx-3);
+  }
+  .badge.plain {
+    color: var(--ac-dim);
+    font-weight: 600;
   }
   .placeholder {
-    padding: 60px 20px;
+    padding: 80px 20px;
     text-align: center;
+    font-family: var(--font-serif);
+    font-size: 15px;
+    letter-spacing: 0.12em;
     color: var(--tx-3);
-    font-size: 14px;
   }
   .personas {
     display: flex;
@@ -423,7 +555,11 @@
     padding: 4px 12px;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .persona:hover {
+    border-color: var(--ac-bdr);
+    color: var(--tx-1);
   }
   .persona.on {
     background: var(--ac-bg);
@@ -473,12 +609,6 @@
     font-size: 12px;
     text-align: center;
     padding: 8px;
-  }
-  .ai-disabled {
-    color: var(--tx-3);
-    font-size: 13px;
-    text-align: center;
-    padding: 40px 8px;
   }
   .ai-foot {
     display: flex;

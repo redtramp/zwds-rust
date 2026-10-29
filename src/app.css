@@ -6,6 +6,8 @@
   color-scheme: light;
 
   --font: -apple-system, "PingFang SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", "Segoe UI", sans-serif;
+  /* 衬线展示字体（标题/卦名/盘面大字）：本地字体栈，不加载网络字体 */
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", var(--font);
   --font-mono: "SF Mono", "Menlo", "Noto Sans Mono", "Consolas", monospace;
   --mono: var(--font-mono);
 
@@ -279,6 +281,12 @@ select {
 }
 .animate-fade-in {
   animation: fade-in 0.4s ease forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none;
+  }
 }
 
 /* 渐变文字（HomePage 内另有作用域实现，此处为全局兜底） */

@@ -84,7 +84,7 @@ pub enum AiRequest {
         question: Option<String>,
         messages: Vec<ChatMsg>,
     },
-    /// 奇门页解读（仅时家/刻家；金函玉镜/整体三盘前端不接线）
+    /// 奇门页解读（4 种盘型均可；chart_text 由前端按盘型格式化，见 engine.ts）
     Qimen {
         persona: String,
         chart_text: String,

@@ -628,8 +628,11 @@ pub fn build_qimen_messages(
     history: &[ChatMsg],
 ) -> Result<Vec<ChatMsg>, String> {
     let base = qimen_persona(persona_key)
-        .ok_or_else(|| format!("奇門人設不存在: {persona_key}"))?;
-    let system = format!("{base}\n\n以下是當前排盤數據供參考：\n{chart_text}");
+        .ok_or_else(|| format!("奇門人設不存在: {persona_key}（可用：{}）", QIMEN_PERSONA_KEYS.join("/")))?;
+    // 人设原文为繁体（逐字移植保留）；语言要求加在拼装层，钉住简体输出与其余界面一致（2026-10-29 需求）
+    let system = format!(
+        "{base}\n\n【語言要求】請全程使用簡體中文回答（盤面數據中的繁體字按對應簡體理解）。\n\n以下是當前排盤數據供參考：\n{chart_text}"
+    );
     let mut msgs = vec![ChatMsg::system(system)];
     msgs.extend_from_slice(history);
     Ok(msgs)
@@ -815,8 +818,12 @@ mod tests {
         assert_eq!(msgs.len(), 2);
         assert_eq!(msgs[0].role, "system");
         assert!(msgs[0].content.starts_with("你是一位奇門遁甲大師"));
+        assert!(msgs[0].content.contains("【語言要求】請全程使用簡體中文回答"));
         assert!(msgs[0].content.contains("以下是當前排盤數據供參考："));
         assert!(msgs[0].content.ends_with("干支：丙午年丁酉月…"));
+        // 无效人设错误信息带可用键列表（QIMEN_PERSONA_KEYS 的非测试用途）
+        let err = build_qimen_messages("nope", "x", &[]).unwrap_err();
+        assert!(err.contains("master/strategist/diviner/fashu/soccer"));
         assert_eq!(msgs[1].content, "請對當前盤局進行完整分析。");
 
         // 无效人设 → Err（ai_chat 走 InvalidConfig 事件）

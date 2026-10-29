@@ -37,7 +37,6 @@ pub fn save(app: &AppHandle, s: &ProviderStore) -> Result<(), String> {
 /// 与磁盘文件往返一致（load 后 save 应还原同一语义状态）
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::ai::provider::{ProviderConfig, ProviderInput, ProviderStore};
     use serde_json::Value;
 

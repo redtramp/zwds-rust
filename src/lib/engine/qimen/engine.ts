@@ -961,3 +961,28 @@ export function formatChartText(
   lines.push(`  中宮：地盤=${q['地盤']?.['中'] ?? ''}`);
   return lines.join('\n\n');
 }
+
+/**
+ * formatJinyinChartText：金函玉镜（日家）盘面 → AI 文本（项目扩展，R14：T1 反转后日家/整体也提供解读）。
+ * 结构跟 gpan() 输出：局 / 鹤神 / 九宫星门 / 十二神（地支键）。
+ */
+export function formatJinyinChartText(
+  q: Record<string, any>,
+  y: number, m: number, d: number, h: number, minute: number,
+): string {
+  const egKeys = '巽離坤震兌艮坎乾'.split('');
+  const bz = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+  const lines: string[] = [
+    '以下是金函玉鏡（日家奇門）排盤的計算結果，請根據這些數據提供詳細的分析和解釋：',
+    `${y}年${m}月${d}日 ${h}時${minute}分`,
+    `局：${q['局'] ?? ''}`,
+    `鶴神：${(q['鶴神'] ?? []).join('')}`,
+    '\n【九宮盤局】',
+  ];
+  for (const gua of egKeys) {
+    lines.push(`  ${gua}宮：九星=${q['星']?.[gua] ?? ''}，八門=${q['門']?.[gua] ?? ''}`);
+  }
+  lines.push('\n【十二神】');
+  lines.push(bz.map((b) => `${b}=${(q['神'] ?? {})[b] ?? ''}`).join('，'));
+  return lines.join('\n');
+}

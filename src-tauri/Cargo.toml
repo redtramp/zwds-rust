@@ -1,6 +1,6 @@
 [package]
 name = "ziwei-doushu"
-version = "0.1.0"
+version = "0.2.0"
 description = "紫微斗数 — Rust + Tauri 2 + Svelte 5 桌面应用"
 authors = ["redtramp"]
 edition = "2021"
